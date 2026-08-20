@@ -1,21 +1,57 @@
-import express from "express";
-import dotenv from "dotenv";
-import studentRoutes from "./routes/StudentRoutes";
+const express = require("express") as typeof import("express");
 
-dotenv.config();
+const cors = require("cors") as typeof import("cors");
+
+const { env } = require("./config/env");
+
+const { etudiantRouter } = require("./routes/etudiantRoutes");
+
+const { generateToken } = require("./middlewares/authMiddleware");
+
+const { errorHandler, notFoundHandler } = require("./middlewares/errorMiddleware");
 
 const app = express();
 
+app.use(cors({ origin: env.corsOrigins.length > 0 ? env.corsOrigins : true, methods: ["GET", "POST", "PUT", "PATCH", "DELETE"], allowedHeaders: ["Content-Type", "Authorization"] }));
+
 app.use(express.json());
 
-app.use("/students", studentRoutes);
+app.get("/", (request, response) => {
+    void request;
 
-app.get("/", (req, res) => {
-    res.json({
-        message: "API étudiants fonctionnelle"
+    response.status(200).json({ message: "API étudiants opérationnelle." });
+});
+
+app.post("/login", (request, response) => {
+    const userId = request.body?.userId ?? "postman-test-user";
+
+    if (typeof userId !== "string" && typeof userId !== "number") {
+        response.status(400).json({
+            error: {
+                message: "userId doit être une chaîne ou un nombre.",
+                statusCode: 400
+            }
+        });
+
+        return;
+    }
+
+    const token = generateToken({ userId });
+
+    response.status(200).json({
+        token,
+        tokenType: "Bearer"
     });
 });
 
-app.listen(3000, () => {
-    console.log("Serveur démarré sur http://localhost:3000");
-});
+app.use("/etudiants", etudiantRouter);
+
+app.use(notFoundHandler);
+
+app.use(errorHandler);
+
+app.listen(env.port, () => console.log(`Serveur démarré sur http://localhost:${env.port}`));
+
+module.exports = { app };
+
+export {};
